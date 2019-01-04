@@ -2,6 +2,7 @@
 
 const express = require('express');
 const request = require('request');
+const rp = require('request-promise');
 
 const app = express();
 const morgan = require('morgan');
@@ -43,27 +44,24 @@ app.get('/api/people', (req, res, next) => {
 
 app.get('/api/planets', (req, res, next) => {
   let planets = [];
-  let name;
-  let residentList;
   let nextPage = 'https://swapi.co/api/planets';
-  function paginatePlanets(nextPage) {
+  let residentList;
+  async function paginatePlanets(nextPage) {
     if (nextPage === null) {
       for (let i = 0; i < planets.length; i++) {
-        planets[i].residents.map(url => {
-          //   const body = await request(url, { json: true }, response);
-          //   return body.name;
-          residentList = request(
-            url,
-            { json: true },
-            (error, response, body) => {
-              if (!error && response.statusCode === 200) {
-                name = body.name;
-                return name;
-              }
-            }
-          );
-          console.log(name);
-          return residentList;
+        residentList = await planets[i].residents.map(async url => {
+          let name;
+          let options = {
+            uri: url,
+            json: true
+          };
+          return rp(options).then(res => {
+            name = res.name;
+            return name;
+          });
+        });
+        await Promise.all(residentList).then(list => {
+          planets[i].residents = list;
         });
       }
       return res.json(planets);
